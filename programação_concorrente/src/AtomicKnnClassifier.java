@@ -1,34 +1,35 @@
 import java.util.Collection;
-import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.concurrent.locks.ReentrantLock;;
+import java.util.Map.Entry;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.atomic.AtomicIntegerArray;
 
-public class MutexKnnClassifier {
+public class AtomicKnnClassifier {
 	private int k; 
 	private double [][] trainData;	
 	private int [] trainDataTargetList;
-	private int [] testDataTargetList;
+	private AtomicIntegerArray testDataTargetList;
 	private SortedMap <Float, Integer> temporaryIndexBuffer;
 	private int syncSortingSignal;
-	private ReentrantLock mutex;
 	private Thread[] threads;
 
 	
-	public MutexKnnClassifier(int n_neighbors, int n_instances_train, int n_instances_test) {
+	public AtomicKnnClassifier(int n_neighbors, int n_instances_train, int n_instances_test) {
 
 		this.k = n_neighbors;
 		this.trainData = new double [n_instances_train][9];
 		
+		
 		this.trainDataTargetList = new int [n_instances_train];
-		this.testDataTargetList = new int [n_instances_test];
+		this.testDataTargetList = new AtomicIntegerArray (n_instances_test);
 		
 		
 		this.temporaryIndexBuffer = new TreeMap <Float, Integer>();
 		this.syncSortingSignal = 0;
 		
 		threads = new Thread[2];
-		this.mutex = new ReentrantLock ();
+
 	}
 	
 	public void fit(double [][] dataset, int [] targetList) {
@@ -50,13 +51,13 @@ public class MutexKnnClassifier {
 			
 		threads[0] = new Thread(new Runnable() {
 			public void run() {
-				MutexKnnClassifier.this.predictSplited(FIRST_THREAD_INIT, data);	
+				AtomicKnnClassifier.this.predictSplited(FIRST_THREAD_INIT, data);	
 			}
 		});
 		
 		threads[1] = new Thread(new Runnable() {
 			public void run() {
-				MutexKnnClassifier.this.predictSplited(SECOND_THREAD_INIT, data);	
+				AtomicKnnClassifier.this.predictSplited(SECOND_THREAD_INIT, data);	
 			}
 		});
 	
@@ -69,7 +70,13 @@ public class MutexKnnClassifier {
 			}
 		}
 		
-		return this.testDataTargetList;
+		int [] returnList = new int [this.testDataTargetList.length()];
+		
+		for(int i=0; i<this.testDataTargetList.length(); i++) {
+			returnList[i] = this.testDataTargetList.get(i);
+		}
+		
+		return returnList;
 	}
 	
 	public void predictSplited (int startingIndex, double [][] data) {
@@ -101,9 +108,7 @@ public class MutexKnnClassifier {
 				if(aux_index >= this.k) break;
 			}
 			
-			this.mutex.lock();
 			this.smartInsertion(instancePredicted, sortedIndexes);
-			this.mutex.unlock();
 			
 			//this.testDataTargetList[instancePredicted] = mode(sortedIndexes.values(), this.k);
 			instancePredicted++;
@@ -118,8 +123,9 @@ public class MutexKnnClassifier {
 	private void smartInsertion(int recptorIndex, SortedMap <Float, Integer> indexes) {
 		
 		if(this.syncSortingSignal == 0) {
-			this.testDataTargetList[recptorIndex] = mode(indexes.values(), this.k);
-			
+						
+			this.testDataTargetList.set(recptorIndex, mode(indexes.values(), this.k)); 
+	
 			for(Entry<Float, Integer> entry : indexes.entrySet()) {
 				this.temporaryIndexBuffer.put(entry.getKey(), entry.getValue());
 			}
@@ -133,7 +139,7 @@ public class MutexKnnClassifier {
 				this.temporaryIndexBuffer.put(entry.getKey(), entry.getValue());
 			}
 			
-			this.testDataTargetList[recptorIndex] = mode(this.temporaryIndexBuffer.values(), this.k);
+			this.testDataTargetList.set(recptorIndex, mode(this.temporaryIndexBuffer.values(), this.k));
 			
 			this.syncSortingSignal = 0;
 			
@@ -179,4 +185,5 @@ public class MutexKnnClassifier {
 
 		    return maxValue;
 	 }
+	
 }
