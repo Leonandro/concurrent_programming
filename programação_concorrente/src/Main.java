@@ -10,16 +10,17 @@ public class Main {
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
 		 long tempoInicial = System.currentTimeMillis();
-		KnnClassifier knn = new KnnClassifier(5, 7526883, 20);
+		
 		CSVReader trainReader = new CSVReader("/home/leonandro/Codes/java/programação_concorrente/datasets/diabetes.csv", 7526883);
 		CSVReader testReader = new CSVReader("/home/leonandro/Codes/java/programação_concorrente/datasets/test_diabetes.csv", 20);
 		trainReader.load();
 		testReader.load();
 		double [][] test = testReader.getTrain(); 
-		int [] TEST_ANSWERS = new int [20];
+		int [] TEST_ANSWERS = testReader.getOutcomes();
 		int [] KNN_ANSWERS = new int [20];
+	
 		
-		TEST_ANSWERS = testReader.getOutcomes();
+		KnnClassifier knn = new KnnClassifier(5, 7526883, 20);
 	
 		
 		//System.out.println(trainReader.getTrain());
