@@ -20,7 +20,7 @@ public class Main {
 		int [] KNN_ANSWERS = new int [20];
 	
 		
-		AtomicKnnClassifier knn = new AtomicKnnClassifier(5, 7526883, 20);
+		KnnClassifier knn = new KnnClassifier(5, 7526883, 20);
 	
 		
 		//System.out.println(trainReader.getTrain());
@@ -43,7 +43,10 @@ public class Main {
 		
 		 long tempoFinal = System.currentTimeMillis();
 		
-		System.out.println("Acc -> " + (float) numberOfHits/KNN_ANSWERS.length);
+		System.out.printf("Acc -> %.2f \n", (float) numberOfHits/KNN_ANSWERS.length);
+		for (int a : KNN_ANSWERS) {
+			System.out.print(a);
+		}
 		System.out.printf("Time Required:  %.3f ms%n", (tempoFinal - tempoInicial) / 1000d);
 	}
 

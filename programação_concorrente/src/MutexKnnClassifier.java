@@ -44,10 +44,6 @@ public class MutexKnnClassifier {
 		int SECOND_THREAD_INIT = this.trainDataTargetList.length/2 + 1;
 	
 			
-			// Left, Right: Indexes of the test dataset that the current thread is responsible (size: NUM_INSTANCES_TEST/NUM_THREADS per thread)
-//			int left = i*(NUM_INSTANCES_TEST/NUM_THREADS);
-//			int right = (i+1)*(NUM_INSTANCES_TEST/NUM_THREADS);
-			
 		threads[0] = new Thread(new Runnable() {
 			public void run() {
 				MutexKnnClassifier.this.predictSplited(FIRST_THREAD_INIT, data);	
@@ -59,7 +55,9 @@ public class MutexKnnClassifier {
 				MutexKnnClassifier.this.predictSplited(SECOND_THREAD_INIT, data);	
 			}
 		});
-	
+		
+		threads[0].start();
+		threads[1].start();
 		// To stop execution only when all threads ends their execution
 		for(Thread t : threads) {		
 			try {
@@ -105,11 +103,14 @@ public class MutexKnnClassifier {
 			this.smartInsertion(instancePredicted, sortedIndexes);
 			this.mutex.unlock();
 			
+			System.out.println("Size of [SortedX]: " + sortedX.size() + " / Size of [finalIndex]: " + finalIndex );
+
 			//this.testDataTargetList[instancePredicted] = mode(sortedIndexes.values(), this.k);
 			instancePredicted++;
 			sortedX.clear();
 			sortedIndexes.clear();
-			System.out.println("line: " +  instancePredicted + " - [" + (float)instancePredicted/20 + "]");
+			
+			//System.out.println("line: " +  instancePredicted + " - [" + (float)instancePredicted/20 + "]");
 		}
 			
 //		return this.testDataTargetList;
