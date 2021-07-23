@@ -1,4 +1,5 @@
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -9,7 +10,7 @@ public class MutexKnnClassifier {
 	private double [][] trainData;	
 	private int [] trainDataTargetList;
 	private int [] testDataTargetList;
-	private SortedMap <Float, Integer> temporaryIndexBuffer;
+	private HashMap <Integer, Float> temporaryIndexBuffer;
 	private int syncSortingSignal;
 	private ReentrantLock mutex;
 	private Thread[] threads;
@@ -24,7 +25,7 @@ public class MutexKnnClassifier {
 		this.testDataTargetList = new int [n_instances_test];
 		
 		
-		this.temporaryIndexBuffer = new TreeMap <Float, Integer>();
+		this.temporaryIndexBuffer = new HashMap <Integer, Float>();
 		this.syncSortingSignal = 0;
 		
 		threads = new Thread[2];
@@ -78,50 +79,65 @@ public class MutexKnnClassifier {
 		SortedMap <Float, Integer> sortedIndexes = new TreeMap <Float, Integer> ();
 		
 		SortedMap <Float, Integer> sortedX = new TreeMap <Float, Integer>();
+		
+		HashMap <Integer, Float> kInstances = new HashMap <Integer, Float>();
 
 		int index = 0;
 		
 		int instancePredicted = 0;
+		
+		int thisLittleMF = -1;
 		for(double [] lineToPredict : data) {
 			
-			for(int j = startingIndex; j < finalIndex; j++) {
+			for(int j = 0; j < this.trainDataTargetList.length; j++) {
+				float distanceToLineInTrain = this.calculateEuclidianDistance(lineToPredict, this.trainData[j]);
 				
-				sortedX.put(this.calculateEuclidianDistance(lineToPredict, this.trainData[j]), index);
-				index++;
+				if(kInstances.size() < this.k) {
+					kInstances.put(j, distanceToLineInTrain);
+				}
+				
+				else {
+					thisLittleMF = this.isSmallerThanSomeone(distanceToLineInTrain, kInstances); 
+					if(thisLittleMF != -1) {
+						kInstances.remove(thisLittleMF);
+						kInstances.put(j, distanceToLineInTrain);
+					}
+				}
+							
 			}
 			
-			index = 0;
-			
-			int aux_index = 0;
-			for(Entry<Float, Integer> entry: sortedX.entrySet()) {
-				sortedIndexes.put(entry.getKey(), entry.getValue());
-				aux_index++;
-				if(aux_index >= this.k) break;
-			}
 			
 			this.mutex.lock();
-			this.smartInsertion(instancePredicted, sortedIndexes);
+			this.smartInsertion(instancePredicted, kInstances);
 			this.mutex.unlock();
 			
-			System.out.println("Size of [SortedX]: " + sortedX.size() + " / Size of [finalIndex]: " + finalIndex );
-
-			//this.testDataTargetList[instancePredicted] = mode(sortedIndexes.values(), this.k);
 			instancePredicted++;
-			sortedX.clear();
-			sortedIndexes.clear();
-			
-			//System.out.println("line: " +  instancePredicted + " - [" + (float)instancePredicted/20 + "]");
+			kInstances.clear();
 		}
 			
-//		return this.testDataTargetList;
 	}
 	
-	private void smartInsertion(int recptorIndex, SortedMap <Float, Integer> indexes) {
+	private int isSmallerThanSomeone (float value, HashMap<Integer, Float> instances) {
+		int smallerValueIndex = -1;
+		float smallerValue = 9999999;
+		for(int a : instances.keySet()) {
+			if(value < instances.get(a)) {
+				if(value < smallerValue) {
+					smallerValueIndex = a;
+					smallerValue = instances.get(a);
+				}
+			}
+		}
+		
+		return smallerValueIndex;
+	}
+	
+	private void smartInsertion(int recptorIndex, HashMap <Integer, Float> indexes) {
 		
 		if(this.syncSortingSignal == 0) {
-			this.testDataTargetList[recptorIndex] = mode(indexes.values(), this.k);
+			this.testDataTargetList[recptorIndex] = mode(indexes.keySet(), this.k);
 			
-			for(Entry<Float, Integer> entry : indexes.entrySet()) {
+			for(Entry<Integer, Float> entry : indexes.entrySet()) {
 				this.temporaryIndexBuffer.put(entry.getKey(), entry.getValue());
 			}
 
@@ -130,11 +146,11 @@ public class MutexKnnClassifier {
 		
 		else {
 			
-			for(Entry<Float, Integer> entry : indexes.entrySet()) {
+			for(Entry<Integer, Float> entry : indexes.entrySet()) {
 				this.temporaryIndexBuffer.put(entry.getKey(), entry.getValue());
 			}
 			
-			this.testDataTargetList[recptorIndex] = mode(this.temporaryIndexBuffer.values(), this.k);
+			this.testDataTargetList[recptorIndex] = mode(this.temporaryIndexBuffer.keySet(), this.k);
 			
 			this.syncSortingSignal = 0;
 			
@@ -167,7 +183,6 @@ public class MutexKnnClassifier {
 		    a = list.toArray();
 		    
 		    for (int i = 0; i <k; i++) {
-		    	//System.out.print(a[i] + " - ");
 		        int count = 0;
 		        for (int j = 0; j < a.length; ++j) {
 		            if (this.trainDataTargetList[(int)a[j]] == this.trainDataTargetList[(int)a[i]]) ++count;
