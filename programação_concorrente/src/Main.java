@@ -20,7 +20,7 @@ public class Main {
 		int [] KNN_ANSWERS = new int [20];
 	
 		
-		MutexKnnClassifier knn = new MutexKnnClassifier(5, 7526883, 20);
+		AtomicKnnClassifier knn = new AtomicKnnClassifier(5, 7526883, 20);
 	
 		
 		//System.out.println(trainReader.getTrain());

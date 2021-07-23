@@ -1,4 +1,5 @@
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.Map.Entry;
@@ -10,7 +11,7 @@ public class AtomicKnnClassifier {
 	private double [][] trainData;	
 	private int [] trainDataTargetList;
 	private AtomicIntegerArray testDataTargetList;
-	private SortedMap <Float, Integer> temporaryIndexBuffer;
+	private HashMap <Integer, Float> temporaryIndexBuffer;
 	private int syncSortingSignal;
 	private Thread[] threads;
 
@@ -25,7 +26,7 @@ public class AtomicKnnClassifier {
 		this.testDataTargetList = new AtomicIntegerArray (n_instances_test);
 		
 		
-		this.temporaryIndexBuffer = new TreeMap <Float, Integer>();
+		this.temporaryIndexBuffer = new HashMap <Integer, Float>();
 		this.syncSortingSignal = 0;
 		
 		threads = new Thread[2];
@@ -48,14 +49,12 @@ public class AtomicKnnClassifier {
 			
 		threads[0] = new Thread(new Runnable() {
 			public void run() {
-				System.out.println("Chamano a split na thread 1");
 				AtomicKnnClassifier.this.predictSplited(FIRST_THREAD_INIT, data);	
 			}
 		});
 		
 		threads[1] = new Thread(new Runnable() {
 			public void run() {
-				System.out.println("Chamano a split na thread 2");
 				AtomicKnnClassifier.this.predictSplited(SECOND_THREAD_INIT, data);	
 			}
 		});
@@ -85,49 +84,64 @@ public class AtomicKnnClassifier {
 		int finalIndex = this.trainDataTargetList.length;
 		if(startingIndex == 0) finalIndex = trainDataTargetList.length/2;
 		
-		SortedMap <Float, Integer> sortedIndexes = new TreeMap <Float, Integer> ();
-		
-		SortedMap <Float, Integer> sortedX = new TreeMap <Float, Integer>();
 
-		int index = 0;
+		HashMap <Integer, Float> kInstances = new HashMap <Integer, Float>();
+
+
 		
 		int instancePredicted = 0;
+		int thisLittleMF = -1;
 		for(double [] lineToPredict : data) {
 			
-			for(int j = startingIndex; j < finalIndex; j++) {
+			for(int j = 0; j < this.trainDataTargetList.length; j++) {
+				float distanceToLineInTrain = this.calculateEuclidianDistance(lineToPredict, this.trainData[j]);
 				
-				sortedX.put(this.calculateEuclidianDistance(lineToPredict, this.trainData[j]), index);
-				index++;
+				if(kInstances.size() < this.k) {
+					kInstances.put(j, distanceToLineInTrain);
+				}
+				
+				else {
+					thisLittleMF = this.isSmallerThanSomeone(distanceToLineInTrain, kInstances); 
+					if(thisLittleMF != -1) {
+						kInstances.remove(thisLittleMF);
+						kInstances.put(j, distanceToLineInTrain);
+					}
+				}
+							
 			}
 			
-			index = 0;
 			
-			int aux_index = 0;
-			for(Entry<Float, Integer> entry: sortedX.entrySet()) {
-				sortedIndexes.put(entry.getKey(), entry.getValue());
-				aux_index++;
-				if(aux_index >= this.k) break;
-			}
-			
-			
-			this.smartInsertion(instancePredicted, sortedIndexes);
+			this.smartInsertion(instancePredicted, kInstances);
 			
 			//this.testDataTargetList[instancePredicted] = mode(sortedIndexes.values(), this.k);
 			instancePredicted++;
-			sortedX.clear();
-			sortedIndexes.clear();
-			System.out.println("line: " +  instancePredicted + " - [" + (float)instancePredicted/20 + "]");
+			kInstances.clear();
 		}
 			
 //		return this.testDataTargetList;
 	}
 	
-	private void smartInsertion(int recptorIndex, SortedMap <Float, Integer> indexes) {
+	private int isSmallerThanSomeone (float value, HashMap<Integer, Float> instances) {
+		int smallerValueIndex = -1;
+		float smallerValue = 9999999;
+		for(int a : instances.keySet()) {
+			if(value < instances.get(a)) {
+				if(value < smallerValue) {
+					smallerValueIndex = a;
+					smallerValue = instances.get(a);
+				}
+			}
+		}
+		
+		return smallerValueIndex;
+	}
+	
+	private void smartInsertion(int recptorIndex, HashMap <Integer, Float> indexes) {
 		if(this.syncSortingSignal == 0) {
 			
-			this.testDataTargetList.set(recptorIndex, mode(indexes.values(), this.k)); 
+			this.testDataTargetList.set(recptorIndex, mode(indexes.keySet(), this.k)); 
 	
-			for(Entry<Float, Integer> entry : indexes.entrySet()) {
+			for(Entry<Integer, Float> entry : indexes.entrySet()) {
 				this.temporaryIndexBuffer.put(entry.getKey(), entry.getValue());
 			}
 
@@ -136,14 +150,11 @@ public class AtomicKnnClassifier {
 		
 		else {
 			
-			for(Entry<Float, Integer> entry : indexes.entrySet()) {
+			for(Entry<Integer, Float> entry : indexes.entrySet()) {
 				this.temporaryIndexBuffer.put(entry.getKey(), entry.getValue());
 			}
-			//System.out.println(this.temporaryIndexBuffer);
-//			System.out.println("signal = 1");
-//			System.out.print(this.testDataTargetList.get(recptorIndex) + " ");
 			
-			this.testDataTargetList.set(recptorIndex, mode(this.temporaryIndexBuffer.values(), this.k));
+			this.testDataTargetList.set(recptorIndex, mode(this.temporaryIndexBuffer.keySet(), this.k));
 			
 			this.syncSortingSignal = 0;
 			

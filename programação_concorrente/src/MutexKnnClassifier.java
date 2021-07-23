@@ -76,9 +76,6 @@ public class MutexKnnClassifier {
 		int finalIndex = this.trainDataTargetList.length;
 		if(startingIndex == 0) finalIndex = trainDataTargetList.length/2;
 		
-		SortedMap <Float, Integer> sortedIndexes = new TreeMap <Float, Integer> ();
-		
-		SortedMap <Float, Integer> sortedX = new TreeMap <Float, Integer>();
 		
 		HashMap <Integer, Float> kInstances = new HashMap <Integer, Float>();
 

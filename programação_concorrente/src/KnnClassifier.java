@@ -71,7 +71,6 @@ public class KnnClassifier {
 			
 			this.testDataTargetList[instancePredicted] = mode(kInstances.keySet(), this.k);
 			instancePredicted++;
-			//System.out.println("Size of [SortedX]: " + sortedX.size() + " / Size of [hue]: " + kInstances.size() + "[PREDICT] - " + this.testDataTargetList[instancePredicted-1]);
 			kInstances.clear();
 
 
