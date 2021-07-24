@@ -11,12 +11,11 @@ public class AtomicKnnClassifier {
 	private double [][] trainData;	
 	private int [] trainDataTargetList;
 	private AtomicIntegerArray testDataTargetList;
-	private HashMap <Integer, Float> temporaryIndexBuffer;
-	private int syncSortingSignal;
 	private Thread[] threads;
+	private int n_threads;
 
 	
-	public AtomicKnnClassifier(int n_neighbors, int n_instances_train, int n_instances_test) {
+	public AtomicKnnClassifier(int n_neighbors, int n_instances_train, int n_instances_test, int n_threads) {
 
 		this.k = n_neighbors;
 		this.trainData = new double [n_instances_train][9];
@@ -24,12 +23,10 @@ public class AtomicKnnClassifier {
 		
 		this.trainDataTargetList = new int [n_instances_train];
 		this.testDataTargetList = new AtomicIntegerArray (n_instances_test);
+				
+		this.n_threads = n_threads;
 		
-		
-		this.temporaryIndexBuffer = new HashMap <Integer, Float>();
-		this.syncSortingSignal = 0;
-		
-		threads = new Thread[2];
+		threads = new Thread[n_threads];
 
 	}
 	
@@ -41,26 +38,30 @@ public class AtomicKnnClassifier {
 	
 	
 	public int [] predict (double [] [] data) {
+		int N_PARTITION_SIZE = (this.testDataTargetList.length() / this.n_threads);
+		//Case of n_threads = 3
+		// P1 = (0, 6)
+		// P2 = (6, 12)
+		// P3 = (12, 18) 
+		// WRONG, the P3(last partition) have to get all the rest of the data
 		
-		int FIRST_THREAD_INIT = 0;
-		int SECOND_THREAD_INIT = this.trainDataTargetList.length/2 + 1;
-	
-			
-			
-		threads[0] = new Thread(new Runnable() {
-			public void run() {
-				AtomicKnnClassifier.this.predictSplited(FIRST_THREAD_INIT, data);	
-			}
-		});
 		
-		threads[1] = new Thread(new Runnable() {
-			public void run() {
-				AtomicKnnClassifier.this.predictSplited(SECOND_THREAD_INIT, data);	
-			}
-		});
-	
-		threads[0].start();
-		threads[1].start();
+		for(int i=0; i<this.n_threads; i++) {
+			int init = (N_PARTITION_SIZE*i);
+			int end = N_PARTITION_SIZE*(i+1);
+			threads[i] = new Thread(new Runnable() {
+				public void run() {
+					AtomicKnnClassifier.this.predictSplited(init, end, data);	
+				}
+			});
+		}
+			
+		
+		for(Thread t : threads) {
+			t.start();
+		}
+		
+
 		// To stop execution only when all threads ends their execution
 		for(Thread t : threads) {		
 			try {
@@ -79,22 +80,19 @@ public class AtomicKnnClassifier {
 		return returnList;
 	}
 	
-	public void predictSplited (int startingIndex, double [][] data) {
+	public void predictSplited (int startingIndex, int finalIndex, double [][] data) {
+		int N_PARTITION_SIZE = (this.testDataTargetList.length() / this.n_threads);
 		
-		int finalIndex = this.trainDataTargetList.length;
-		if(startingIndex == 0) finalIndex = trainDataTargetList.length/2;
+		//The last partition have to represent all the rest of the data [P1, P2,...Pn + {the rest}]
+		if(finalIndex == N_PARTITION_SIZE*(this.n_threads)) finalIndex = this.testDataTargetList.length();
 		
-
 		HashMap <Integer, Float> kInstances = new HashMap <Integer, Float>();
-
-
 		
-		int instancePredicted = 0;
 		int thisLittleMF = -1;
-		for(double [] lineToPredict : data) {
+		for(int i=startingIndex; i<finalIndex; i++) {
 			
 			for(int j = 0; j < this.trainDataTargetList.length; j++) {
-				float distanceToLineInTrain = this.calculateEuclidianDistance(lineToPredict, this.trainData[j]);
+				float distanceToLineInTrain = this.calculateEuclidianDistance(data[i], this.trainData[j]);
 				
 				if(kInstances.size() < this.k) {
 					kInstances.put(j, distanceToLineInTrain);
@@ -111,14 +109,13 @@ public class AtomicKnnClassifier {
 			}
 			
 			
-			this.smartInsertion(instancePredicted, kInstances);
+
+			this.testDataTargetList.set(i, mode(kInstances.keySet(), this.k));
 			
-			//this.testDataTargetList[instancePredicted] = mode(sortedIndexes.values(), this.k);
-			instancePredicted++;
 			kInstances.clear();
 		}
 			
-//		return this.testDataTargetList;
+
 	}
 	
 	private int isSmallerThanSomeone (float value, HashMap<Integer, Float> instances) {
@@ -136,34 +133,6 @@ public class AtomicKnnClassifier {
 		return smallerValueIndex;
 	}
 	
-	private void smartInsertion(int recptorIndex, HashMap <Integer, Float> indexes) {
-		if(this.syncSortingSignal == 0) {
-			
-			this.testDataTargetList.set(recptorIndex, mode(indexes.keySet(), this.k)); 
-	
-			for(Entry<Integer, Float> entry : indexes.entrySet()) {
-				this.temporaryIndexBuffer.put(entry.getKey(), entry.getValue());
-			}
-
-			this.syncSortingSignal = 1;
-		}
-		
-		else {
-			
-			for(Entry<Integer, Float> entry : indexes.entrySet()) {
-				this.temporaryIndexBuffer.put(entry.getKey(), entry.getValue());
-			}
-			
-			this.testDataTargetList.set(recptorIndex, mode(this.temporaryIndexBuffer.keySet(), this.k));
-			
-			this.syncSortingSignal = 0;
-			
-			this.temporaryIndexBuffer.clear();
-			
-			
-		}
-		
-	}
 	
 	private Float calculateEuclidianDistance(double [] a, double [] b) {
 		double sum = 0f;

@@ -10,13 +10,11 @@ public class MutexKnnClassifier {
 	private double [][] trainData;	
 	private int [] trainDataTargetList;
 	private int [] testDataTargetList;
-	private HashMap <Integer, Float> temporaryIndexBuffer;
-	private int syncSortingSignal;
 	private ReentrantLock mutex;
 	private Thread[] threads;
-
+	private int n_threads;
 	
-	public MutexKnnClassifier(int n_neighbors, int n_instances_train, int n_instances_test) {
+	public MutexKnnClassifier(int n_neighbors, int n_instances_train, int n_instances_test, int n_threads) {
 
 		this.k = n_neighbors;
 		this.trainData = new double [n_instances_train][9];
@@ -24,11 +22,8 @@ public class MutexKnnClassifier {
 		this.trainDataTargetList = new int [n_instances_train];
 		this.testDataTargetList = new int [n_instances_test];
 		
-		
-		this.temporaryIndexBuffer = new HashMap <Integer, Float>();
-		this.syncSortingSignal = 0;
-		
-		threads = new Thread[2];
+		this.n_threads = n_threads;
+		threads = new Thread[n_threads];
 		this.mutex = new ReentrantLock ();
 	}
 	
@@ -40,25 +35,29 @@ public class MutexKnnClassifier {
 	
 	
 	public int [] predict (double [] [] data) {
-		
-		int FIRST_THREAD_INIT = 0;
-		int SECOND_THREAD_INIT = this.trainDataTargetList.length/2 + 1;
+		int N_PARTITION_SIZE = (this.testDataTargetList.length / this.n_threads);
+		// 20 / 3 = 6,667 => 6
+		// 0..5
+		// 6..11 
+		// 12..17 
 	
+		for(int i=0; i<this.n_threads; i++) {
+			int init = (N_PARTITION_SIZE*i);
+			int end = N_PARTITION_SIZE*(i+1);
 			
-		threads[0] = new Thread(new Runnable() {
-			public void run() {
-				MutexKnnClassifier.this.predictSplited(FIRST_THREAD_INIT, data);	
-			}
-		});
+			threads[i] = new Thread(new Runnable() {
+				public void run() {
+					MutexKnnClassifier.this.predictSplited(init, end, data);	
+				}
+			});
+		}
+			
 		
-		threads[1] = new Thread(new Runnable() {
-			public void run() {
-				MutexKnnClassifier.this.predictSplited(SECOND_THREAD_INIT, data);	
-			}
-		});
+		for(Thread t : threads) {
+			t.start();
+		}
 		
-		threads[0].start();
-		threads[1].start();
+
 		// To stop execution only when all threads ends their execution
 		for(Thread t : threads) {		
 			try {
@@ -71,23 +70,19 @@ public class MutexKnnClassifier {
 		return this.testDataTargetList;
 	}
 	
-	public void predictSplited (int startingIndex, double [][] data) {
+	public void predictSplited (int startingIndex, int finalIndex, double [][] data) {
+		int N_PARTITION_SIZE = (this.testDataTargetList.length / this.n_threads);
 		
-		int finalIndex = this.trainDataTargetList.length;
-		if(startingIndex == 0) finalIndex = trainDataTargetList.length/2;
-		
+		//The last partition have to represent all the rest of the data [P1, P2,...Pn + {the rest}]
+		if(finalIndex == N_PARTITION_SIZE*(this.n_threads)) finalIndex = this.testDataTargetList.length;
 		
 		HashMap <Integer, Float> kInstances = new HashMap <Integer, Float>();
-
-		int index = 0;
-		
-		int instancePredicted = 0;
 		
 		int thisLittleMF = -1;
-		for(double [] lineToPredict : data) {
+		for(int i=startingIndex; i<finalIndex; i++) {
 			
 			for(int j = 0; j < this.trainDataTargetList.length; j++) {
-				float distanceToLineInTrain = this.calculateEuclidianDistance(lineToPredict, this.trainData[j]);
+				float distanceToLineInTrain = this.calculateEuclidianDistance(data[i], this.trainData[j]);
 				
 				if(kInstances.size() < this.k) {
 					kInstances.put(j, distanceToLineInTrain);
@@ -105,10 +100,11 @@ public class MutexKnnClassifier {
 			
 			
 			this.mutex.lock();
-			this.smartInsertion(instancePredicted, kInstances);
+//			this.smartInsertion(instancePredicted, kInstances);
+			this.testDataTargetList[i] = mode(kInstances.keySet(), this.k);
 			this.mutex.unlock();
 			
-			instancePredicted++;
+			
 			kInstances.clear();
 		}
 			
@@ -129,34 +125,6 @@ public class MutexKnnClassifier {
 		return smallerValueIndex;
 	}
 	
-	private void smartInsertion(int recptorIndex, HashMap <Integer, Float> indexes) {
-		
-		if(this.syncSortingSignal == 0) {
-			this.testDataTargetList[recptorIndex] = mode(indexes.keySet(), this.k);
-			
-			for(Entry<Integer, Float> entry : indexes.entrySet()) {
-				this.temporaryIndexBuffer.put(entry.getKey(), entry.getValue());
-			}
-
-			this.syncSortingSignal = 1;
-		}
-		
-		else {
-			
-			for(Entry<Integer, Float> entry : indexes.entrySet()) {
-				this.temporaryIndexBuffer.put(entry.getKey(), entry.getValue());
-			}
-			
-			this.testDataTargetList[recptorIndex] = mode(this.temporaryIndexBuffer.keySet(), this.k);
-			
-			this.syncSortingSignal = 0;
-			
-			this.temporaryIndexBuffer.clear();
-			
-			
-		}
-		
-	}
 	
 	private Float calculateEuclidianDistance(double [] a, double [] b) {
 		double sum = 0f;
@@ -168,8 +136,6 @@ public class MutexKnnClassifier {
 		return (float)Math.sqrt(sum);
 	}
 	
-
-
  	 
 	 private int mode(Collection <Integer> list, int k) {
 		    int maxValue = 0; 
