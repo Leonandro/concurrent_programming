@@ -356,6 +356,10 @@ public final class MyBenchmark_testAtomicVersion_jmhTest {
         MyBenchmark_MyState_jmhType val = f_mystate1_1;
         if (val == null) {
             val = new MyBenchmark_MyState_jmhType();
+                Field f;
+                f = KNNBenchmark.KnnTesting.MyBenchmark.MyState.class.getDeclaredField("k");
+                f.setAccessible(true);
+                f.set(val, Integer.valueOf(control.getParam("k")));
             val.doSetup();
             f_mystate1_1 = val;
         }

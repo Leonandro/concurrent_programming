@@ -1,3 +1,5 @@
+package KNNBenchmark.KnnTesting;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map.Entry;
