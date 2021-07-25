@@ -41,14 +41,14 @@ public class MyBenchmark {
 	
 	@State(Scope.Benchmark)
     public static class SerialState {
-		@Param({ "5"})
+		@Param({"5"})
 	    public int k;
 		public KnnClassifier knn;
 		
         @Setup(Level.Trial)
         public void doSetup() {
         	System.out.println("----------------[SetUp]----------------");
-        	knn = new KnnClassifier(k, 7526883, 1742866, 20);
+        	knn = new KnnClassifier(k, 7526883, 1742866, 500);
 
         }
 
@@ -59,7 +59,7 @@ public class MyBenchmark {
     	
 	    @Benchmark 
 	    @Fork(value=1)
-	    @Warmup(iterations = 1) 
+	    @Warmup(iterations = 3) 
 	    @BenchmarkMode(Mode.Throughput)
 	    @OutputTimeUnit(TimeUnit.MINUTES)
 	    public void testSerialVersion(SerialState Serial_state) {
@@ -78,7 +78,7 @@ public class MyBenchmark {
         @Setup(Level.Trial)
         public void doSetup() {
         	System.out.println("----------------[SetUp]----------------");
-        	knn = new MutexKnnClassifier(k, 7526883, 1742866, 20, 2);
+        	knn = new MutexKnnClassifier(k, 7526883, 1742866, 500, 2);
 
         }
 
@@ -92,14 +92,14 @@ public class MyBenchmark {
 
 	    @Benchmark 
 	    @Fork(value=1)
-	    @Warmup(iterations = 1) 
+	    @Warmup(iterations = 3) 
 	    @BenchmarkMode(Mode.Throughput)
 	    @OutputTimeUnit(TimeUnit.MINUTES)
 	    public void testMutexVersion(MutexState Mutex_state) {
 		
 	    	Mutex_state.knn.predict();
 				
-	}
+	    }
     
 	    @State(Scope.Benchmark)
 	    public static class AtomicState {
@@ -110,7 +110,7 @@ public class MyBenchmark {
 	        @Setup(Level.Trial)
 	        public void doSetup() {
 	        	System.out.println("----------------[SetUp]----------------");
-	        	knn = new AtomicKnnClassifier(k, 7526883, 1742866, 20, 2);
+	        	knn = new AtomicKnnClassifier(k, 7526883, 1742866, 500, 2);
 
 	        }
 
@@ -124,10 +124,10 @@ public class MyBenchmark {
 
 		    @Benchmark 
 		    @Fork(value=1)
-		    @Warmup(iterations = 1) 
+		    @Warmup(iterations = 3) 
 		    @BenchmarkMode(Mode.Throughput)
 		    @OutputTimeUnit(TimeUnit.MINUTES)
-		    public void testMutexVersion(AtomicState Atomic_state) {
+		    public void testAtomicVersion(AtomicState Atomic_state) {
 			
 		    	Atomic_state.knn.predict();
 					

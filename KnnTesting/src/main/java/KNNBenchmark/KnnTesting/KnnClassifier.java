@@ -82,7 +82,6 @@ public class KnnClassifier {
 			this.testDataTargetList[instancePredicted] = mode(kInstances.keySet(), this.k);
 			instancePredicted++;
 			kInstances.clear();
-			System.out.println("Predict [" + instancePredicted + "] " + (float)100*instancePredicted/this.MAX_INSTANCES_OF_TEST + "%");
 
 		}
 			
