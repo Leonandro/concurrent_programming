@@ -19,9 +19,7 @@ public class AtomicVersionTest extends AbstractJavaSamplerClient implements Seri
 		String test_limit = javaSamplerContext.getParameter("test_limit");
 		String n_threads = javaSamplerContext.getParameter("n_threads");
 		
-					    
-        //AtomicKnnClassifier knn = new AtomicKnnClassifier(Integer.valueOf(k), , Integer.valueOf(test_instances));
-        AtomicKnnClassifier knn = new AtomicKnnClassifier(Integer.valueOf(k), Integer.valueOf(train_instances), Integer.valueOf(test_instances), Integer.valueOf(test_limit), Integer.valueOf(n_threads));
+					            AtomicKnnClassifier knn = new AtomicKnnClassifier(Integer.valueOf(k), Integer.valueOf(train_instances), Integer.valueOf(test_instances), Integer.valueOf(test_limit), Integer.valueOf(n_threads));
 		
         SampleResult result = new SampleResult();
 		result.sampleStart();
@@ -62,7 +60,7 @@ public class AtomicVersionTest extends AbstractJavaSamplerClient implements Seri
 		defaultParameters.addArgument("k","5");
 		defaultParameters.addArgument("train_instances","7526883");
 		defaultParameters.addArgument("test_instances","1742866");
-		defaultParameters.addArgument("test_limit","20");
+		defaultParameters.addArgument("test_limit","500");
 		defaultParameters.addArgument("n_threads","2");
 		return defaultParameters; 
 	} 
