@@ -9,36 +9,42 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
 public class AtomicKnnClassifier {
 	private int k; 
 	private double [][] trainData;	
+	private double [][] testData;
 	private int [] trainDataTargetList;
+	private int [] expectedTestTargetList;
+	private int MAX_INSTANCES_OF_TEST;
 	private AtomicIntegerArray testDataTargetList;
 	private Thread[] threads;
 	private int n_threads;
 
 	
-	public AtomicKnnClassifier(int n_neighbors, int n_instances_train, int n_instances_test, int n_threads) {
-
+	public AtomicKnnClassifier(int n_neighbors, int n_instances_train, int n_instances_test, int MAX_INSTANCES_OF_TEST, int n_threads) {
+		System.out.println("KNN start ---- [Loading the files]");
+		CSVReader trainReader = new CSVReader("/home/leonandro/Codes/java/programação_concorrente/datasets/diabetes.csv", 7526883);
+		CSVReader testReader = new CSVReader("/home/leonandro/Codes/java/programação_concorrente/datasets/diabetes_328mb.csv", 1742866);
+		
 		this.k = n_neighbors;
-		this.trainData = new double [n_instances_train][9];
+		this.trainData = trainReader.load();
+		this.trainDataTargetList = trainReader.getOutcomes();
+		trainReader.clear();
 		
+		System.out.println("KNN update ---- [Train data loaded]");
+		this.testData = testReader.load();
+		this.expectedTestTargetList = testReader.getOutcomes();
+		testReader.clear();
 		
-		this.trainDataTargetList = new int [n_instances_train];
-		this.testDataTargetList = new AtomicIntegerArray (n_instances_test);
-				
+		System.out.println("KNN update ---- [Test data loaded]");
+		
+		this.MAX_INSTANCES_OF_TEST = MAX_INSTANCES_OF_TEST;
 		this.n_threads = n_threads;
-		
 		threads = new Thread[n_threads];
-
-	}
-	
-	public void fit(double [][] dataset, int [] targetList) {
-		this.trainDataTargetList = targetList;
-		this.trainData = dataset;
 		
+		
+		this.testDataTargetList = new AtomicIntegerArray (MAX_INSTANCES_OF_TEST);
 	}
 	
-	
-	public int [] predict (double [] [] data) {
-		int N_PARTITION_SIZE = (this.testDataTargetList.length() / this.n_threads);
+	public int [] predict () {
+		int N_PARTITION_SIZE = (this.MAX_INSTANCES_OF_TEST / this.n_threads);
 		//Case of n_threads = 3
 		// P1 = (0, 6)
 		// P2 = (6, 12)
@@ -51,7 +57,7 @@ public class AtomicKnnClassifier {
 			int end = N_PARTITION_SIZE*(i+1);
 			threads[i] = new Thread(new Runnable() {
 				public void run() {
-					AtomicKnnClassifier.this.predictSplited(init, end, data);	
+					AtomicKnnClassifier.this.predictSplited(init, end, AtomicKnnClassifier.this.testData);	
 				}
 			});
 		}
@@ -81,10 +87,10 @@ public class AtomicKnnClassifier {
 	}
 	
 	public void predictSplited (int startingIndex, int finalIndex, double [][] data) {
-		int N_PARTITION_SIZE = (this.testDataTargetList.length() / this.n_threads);
+		int N_PARTITION_SIZE = (this.MAX_INSTANCES_OF_TEST / this.n_threads);
 		
 		//The last partition have to represent all the rest of the data [P1, P2,...Pn + {the rest}]
-		if(finalIndex == N_PARTITION_SIZE*(this.n_threads)) finalIndex = this.testDataTargetList.length();
+		if(finalIndex == N_PARTITION_SIZE*(this.n_threads)) finalIndex = this.MAX_INSTANCES_OF_TEST;
 		
 		HashMap <Integer, Float> kInstances = new HashMap <Integer, Float>();
 		
@@ -169,5 +175,17 @@ public class AtomicKnnClassifier {
 
 		    return maxValue;
 	 }
+	 
+	 public float getAccuracy () {
+			int numberOfHits = 0;
+			
+			for (int i = 0; i<this.MAX_INSTANCES_OF_TEST; i++) {
+				if(this.testDataTargetList.get(i) == this.expectedTestTargetList[i]) {
+					numberOfHits++;
+				}
+			}
+			//System.out.println((float)numberOfHits / this.MAX_INSTANCES_OF_TEST);
+			return (float)numberOfHits / this.MAX_INSTANCES_OF_TEST;
+		}
 	
 }
