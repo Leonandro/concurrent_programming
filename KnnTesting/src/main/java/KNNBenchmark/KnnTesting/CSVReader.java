@@ -31,7 +31,7 @@ public class CSVReader {
 	
 
 
-	public void load() {
+	public double [][] load() {
 		
         try {
         	 FileReader fileReader = new FileReader(this.path);
@@ -60,7 +60,7 @@ public class CSVReader {
         catch (IOException e) {
             e.printStackTrace();
         }
-   	 	//return this.dataset;
+   	 	return this.dataset;
 	}
 	
 	public void clear () {

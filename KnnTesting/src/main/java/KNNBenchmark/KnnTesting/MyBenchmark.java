@@ -31,17 +31,7 @@
 
 package KNNBenchmark.KnnTesting;
 
-import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.annotations.BenchmarkMode;
-import org.openjdk.jmh.annotations.Mode;
-import org.openjdk.jmh.annotations.Param;
-import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Level;
-import org.openjdk.jmh.annotations.Setup;
-import org.openjdk.jmh.annotations.TearDown;
-import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.*;
 import java.util.concurrent.TimeUnit;
 
 
@@ -49,50 +39,103 @@ import java.util.concurrent.TimeUnit;
 
 public class MyBenchmark {
 	
-
- 
-	@State(Scope.Thread)
-	@OutputTimeUnit(TimeUnit.SECONDS)
-    public static class MyState {
-		@Param({ "5", "7", "10"})
+	@State(Scope.Benchmark)
+    public static class SerialState {
+		@Param({ "5"})
 	    public int k;
+		public KnnClassifier knn;
 		
         @Setup(Level.Trial)
         public void doSetup() {
-        	System.out.println("-----------------[SetUp]-----------------");
-        	trainReader.load();
-    		testReader.load();
-            test = testReader.getTrain();
-            TEST_ANSWERS = testReader.getOutcomes();
+        	System.out.println("----------------[SetUp]----------------");
+        	knn = new KnnClassifier(k, 7526883, 1742866, 20);
+
         }
 
         @TearDown(Level.Trial)
         public void doTearDown() {
-        	trainReader.clear();
-    		testReader.clear();
             System.out.println("----------------[TearDown]----------------");
         }
-    	public CSVReader trainReader = new CSVReader("/home/leonandro/Codes/java/programação_concorrente/datasets/diabetes.csv", 7526883);
-		public CSVReader testReader = new CSVReader("/home/leonandro/Codes/java/programação_concorrente/datasets/test_diabetes.csv", 20);
-		public double [][] test = new double [20][9]; 
-		public int [] TEST_ANSWERS = new int [20];
-		public int [] KNN_ANSWERS = new int [20];
+    	
+	    @Benchmark 
+	    @Fork(value=1)
+	    @Warmup(iterations = 1) 
+	    @BenchmarkMode(Mode.Throughput)
+	    @OutputTimeUnit(TimeUnit.MINUTES)
+	    public void testSerialVersion(SerialState Serial_state) {
+		
+	    	Serial_state.knn.predict();
+				
+	    }
 	}
-
-
-
-    @Benchmark 
-    @Warmup(iterations = 3) 
-    @BenchmarkMode(Mode.Throughput) 
-    public void testAtomicVersion(MyState state) {
 	
-		AtomicKnnClassifier knn = new AtomicKnnClassifier(state.k, 7526883, 20, 2);
+	@State(Scope.Benchmark)
+    public static class MutexState {
+		@Param({ "5"})
+	    public int k;
+		public MutexKnnClassifier knn;
 		
-		knn.fit(state.trainReader.getTrain(), state.trainReader.getOutcomes());
-		
-		state.KNN_ANSWERS = knn.predict(state.test);
-		
+        @Setup(Level.Trial)
+        public void doSetup() {
+        	System.out.println("----------------[SetUp]----------------");
+        	knn = new MutexKnnClassifier(k, 7526883, 1742866, 20, 2);
 
+        }
+
+        @TearDown(Level.Trial)
+        public void doTearDown() {
+            System.out.println("----------------[TearDown]----------------");
+        }
+    	
+
+
+
+	    @Benchmark 
+	    @Fork(value=1)
+	    @Warmup(iterations = 1) 
+	    @BenchmarkMode(Mode.Throughput)
+	    @OutputTimeUnit(TimeUnit.MINUTES)
+	    public void testMutexVersion(MutexState Mutex_state) {
+		
+	    	Mutex_state.knn.predict();
+				
+	}
+    
+	    @State(Scope.Benchmark)
+	    public static class AtomicState {
+			@Param({ "5"})
+		    public int k;
+			public AtomicKnnClassifier knn;
+			
+	        @Setup(Level.Trial)
+	        public void doSetup() {
+	        	System.out.println("----------------[SetUp]----------------");
+	        	knn = new AtomicKnnClassifier(k, 7526883, 1742866, 20, 2);
+
+	        }
+
+	        @TearDown(Level.Trial)
+	        public void doTearDown() {
+	            System.out.println("----------------[TearDown]----------------");
+	        }
+	    	
+
+
+
+		    @Benchmark 
+		    @Fork(value=1)
+		    @Warmup(iterations = 1) 
+		    @BenchmarkMode(Mode.Throughput)
+		    @OutputTimeUnit(TimeUnit.MINUTES)
+		    public void testMutexVersion(AtomicState Atomic_state) {
+			
+		    	Atomic_state.knn.predict();
+					
+		}
+	
+	}
+	
+    
     }
 
 }
