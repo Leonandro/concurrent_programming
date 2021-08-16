@@ -1,5 +1,4 @@
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -7,11 +6,14 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
+import java.util.concurrent.RecursiveAction;
+import java.util.concurrent.RecursiveTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
-public class CallableKnnClassifier {
+public class ForkJoinKnnClassifier {
 	private int k; 
 	private double [][] trainData;	
 	private double [][] testData;
@@ -23,7 +25,7 @@ public class CallableKnnClassifier {
 	private int n_threads;
 
 	
-	public CallableKnnClassifier(int n_neighbors, int n_instances_train, int n_instances_test, int MAX_INSTANCES_OF_TEST, int n_threads) {
+	public ForkJoinKnnClassifier(int n_neighbors, int n_instances_train, int n_instances_test, int MAX_INSTANCES_OF_TEST, int n_threads) {
 		System.out.println("KNN start ---- [Loading the files]");
 		CSVReader trainReader = new CSVReader("/home/leonandro/Codes/java/programação_concorrente/datasets/diabetes.csv", 7526883);
 		CSVReader testReader = new CSVReader("/home/leonandro/Codes/java/programação_concorrente/datasets/diabetes_328mb.csv", 1742866);
@@ -48,40 +50,46 @@ public class CallableKnnClassifier {
 		this.testDataTargetList = new AtomicIntegerArray (MAX_INSTANCES_OF_TEST);
 	}
 	
+	public class PredictTask extends RecursiveAction {
+
+	    long partitionSize;
+	    long N_PARTITION_SIZE;
+	    int startinIndex;
+	    int finalIndex;
+
+	    public PredictTask(long n, long b, int init, int end) {
+	        this.partitionSize = n;
+	        this.N_PARTITION_SIZE = b;
+	        this.startinIndex = init;
+	        this.finalIndex = end;
+	    }
+
+	    @Override
+	    protected void compute() {
+	        if (this.partitionSize <= this.N_PARTITION_SIZE) {
+	           predictSplited(this.startinIndex, this.finalIndex, ForkJoinKnnClassifier.this.testData);
+	        }
+	        else {
+	        	
+	        	//TODO maybe change the implementation of this part, to fit better the n_threads, and not only dividing in 2 parts
+	        	PredictTask f1 = new PredictTask(partitionSize/2, N_PARTITION_SIZE, this.startinIndex, this.finalIndex/2);
+	        	PredictTask f2 = new PredictTask(partitionSize/2, N_PARTITION_SIZE, this.finalIndex/2, this.finalIndex);
+		        f1.fork();
+		        f2.compute();
+		        f1.join();
+	        }
+	    }
+
+	}
+
+	
 	
 	public int [] predict () throws InterruptedException, ExecutionException {
 		int N_PARTITION_SIZE = (this.MAX_INSTANCES_OF_TEST / this.n_threads);
-		//Case of n_threads = 3
-		// P1 = (0, 6)
-		// P2 = (6, 12)
-		// P3 = (12, 18) 
-		// WRONG, the P3(last partition) have to get all the rest of the data
 		
-		
-		ExecutorService executor = Executors.newFixedThreadPool(this.n_threads);
-		List<Callable<String>> splitedPredictions = new ArrayList <>(); 		
-		for(int i=0; i<this.n_threads; i++) {
-			int init = (N_PARTITION_SIZE*i);
-			int end = N_PARTITION_SIZE*(i+1);
-			splitedPredictions.add(new Callable <String> () {
-				
-				@Override
-				public String call() throws Exception{
-					predictSplited(init, end, CallableKnnClassifier.this.testData);
-					return "Task Completed";
-				}
-			});
-		}
-		
-		List<Future<String>> result = executor.invokeAll(splitedPredictions);
-		
-		executor.shutdown();
-		
-		try {
-			executor.awaitTermination(60, TimeUnit.SECONDS);
-		}catch(InterruptedException e) {
-			e.printStackTrace();
-		}
+		ForkJoinPool pool = new ForkJoinPool();
+		PredictTask task = new PredictTask(this.MAX_INSTANCES_OF_TEST, N_PARTITION_SIZE, 0, this.MAX_INSTANCES_OF_TEST);
+		pool.invoke(task);
 		
 		int [] returnList = new int [this.testDataTargetList.length()];
 		
@@ -97,7 +105,7 @@ public class CallableKnnClassifier {
 		int N_PARTITION_SIZE = (this.MAX_INSTANCES_OF_TEST / this.n_threads);
 	
 		//The last partition have to represent all the rest of the data [P1, P2,...Pn + {the rest}]
-		if(finalIndex == N_PARTITION_SIZE*(this.n_threads)) finalIndex = this.MAX_INSTANCES_OF_TEST;
+		//if(finalIndex == N_PARTITION_SIZE*(this.n_threads)) finalIndex = this.MAX_INSTANCES_OF_TEST;
 		
 		HashMap <Integer, Float> kInstances = new HashMap <Integer, Float>();
 		
@@ -127,7 +135,6 @@ public class CallableKnnClassifier {
 			
 			kInstances.clear();
 		}
-			
 	}
 	
 	private int isSmallerThanSomeone (float value, HashMap<Integer, Float> instances) {

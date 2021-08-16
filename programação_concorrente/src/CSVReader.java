@@ -4,11 +4,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 
 
-//Classe para ler arquivos CSV 
-// */ ELA LEVA EM CONSIDERAÇÃO QUE O ARQUIVO CSV CONTÉM APENAS DOUBLES E INTEIROS 
-// [SENDO UMA ÚNICA COLUNA DE INTEIROS, A ÚLTIMA (PARA RERESENTAR AS CLASSES)]/* 
-
-//TODO TERMINAR A CLASSE
 public class CSVReader {
 	
 	private String path;
