@@ -21,7 +21,6 @@ public class ForkJoinKnnClassifier {
 	private int [] expectedTestTargetList;
 	private int MAX_INSTANCES_OF_TEST;
 	private AtomicIntegerArray testDataTargetList;
-	private Thread[] threads;
 	private int n_threads;
 
 	
@@ -44,7 +43,7 @@ public class ForkJoinKnnClassifier {
 		
 		this.MAX_INSTANCES_OF_TEST = MAX_INSTANCES_OF_TEST;
 		this.n_threads = n_threads;
-		threads = new Thread[n_threads];
+		
 		
 		
 		this.testDataTargetList = new AtomicIntegerArray (MAX_INSTANCES_OF_TEST);
