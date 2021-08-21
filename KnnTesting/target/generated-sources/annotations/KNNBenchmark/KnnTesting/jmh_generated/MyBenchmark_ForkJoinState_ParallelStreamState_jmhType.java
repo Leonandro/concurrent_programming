@@ -1,0 +1,4 @@
+package KNNBenchmark.KnnTesting.jmh_generated;
+public class MyBenchmark_ForkJoinState_ParallelStreamState_jmhType extends MyBenchmark_ForkJoinState_ParallelStreamState_jmhType_B3 {
+}
+

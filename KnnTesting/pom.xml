@@ -57,6 +57,20 @@ THE POSSIBILITY OF SUCH DAMAGE.
             <version>${jmh.version}</version>
             <scope>provided</scope>
         </dependency>
+        
+         
+		<dependency>
+		    <groupId>io.projectreactor</groupId>
+		    <artifactId>reactor-core</artifactId>
+		    <version>3.3.9.RELEASE</version>
+		</dependency>
+		
+		<dependency>
+		    <groupId>io.projectreactor</groupId>
+		    <artifactId>reactor-test</artifactId>
+		    <version>3.3.9.RELEASE</version>
+		</dependency>
+
     </dependencies>
 
     <properties>

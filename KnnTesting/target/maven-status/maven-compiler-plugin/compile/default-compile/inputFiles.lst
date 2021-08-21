@@ -3,4 +3,8 @@
 /home/leonandro/eclipse-workspace/KnnTesting/src/main/java/KNNBenchmark/KnnTesting/Test.java
 /home/leonandro/eclipse-workspace/KnnTesting/src/main/java/KNNBenchmark/KnnTesting/AtomicKnnClassifier.java
 /home/leonandro/eclipse-workspace/KnnTesting/src/main/java/KNNBenchmark/KnnTesting/KnnClassifier.java
+/home/leonandro/eclipse-workspace/KnnTesting/src/main/java/KNNBenchmark/KnnTesting/ParallelStreamKnnClassifier.java
+/home/leonandro/eclipse-workspace/KnnTesting/src/main/java/KNNBenchmark/KnnTesting/ReactorKnnClassifier.java
+/home/leonandro/eclipse-workspace/KnnTesting/src/main/java/KNNBenchmark/KnnTesting/CallableKnnClassifier.java
+/home/leonandro/eclipse-workspace/KnnTesting/src/main/java/KNNBenchmark/KnnTesting/ForkJoinKnnClassifier.java
 /home/leonandro/eclipse-workspace/KnnTesting/src/main/java/KNNBenchmark/KnnTesting/MyBenchmark.java

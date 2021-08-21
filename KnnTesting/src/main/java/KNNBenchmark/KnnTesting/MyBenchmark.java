@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Oracle America, Inc.
+/ * Copyright (c) 2014, Oracle America, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,6 +32,8 @@
 package KNNBenchmark.KnnTesting;
 
 import org.openjdk.jmh.annotations.*;
+
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 
@@ -40,15 +42,15 @@ import java.util.concurrent.TimeUnit;
 public class MyBenchmark {
 	
 	@State(Scope.Benchmark)
-    public static class SerialState {
+    public static class CallableState {
 		@Param({"5"})
 	    public int k;
-		public KnnClassifier knn;
+		public CallableKnnClassifier knn;
 		
         @Setup(Level.Trial)
         public void doSetup() {
         	System.out.println("----------------[SetUp]----------------");
-        	knn = new KnnClassifier(k, 7526883, 1742866, 500);
+        	knn = new CallableKnnClassifier(k, 7526883, 1742866, 500, 2);
 
         }
 
@@ -62,23 +64,23 @@ public class MyBenchmark {
 	    @Warmup(iterations = 3) 
 	    @BenchmarkMode(Mode.Throughput)
 	    @OutputTimeUnit(TimeUnit.MINUTES)
-	    public void testSerialVersion(SerialState Serial_state) {
+	    public void testCallableVersion(CallableState Callable_state) throws InterruptedException, ExecutionException {
 		
-	    	Serial_state.knn.predict();
+	    	Callable_state.knn.predict();
 				
 	    }
 	}
 	
 	@State(Scope.Benchmark)
-    public static class MutexState {
+    public static class ForkJoinState {
 		@Param({ "5"})
 	    public int k;
-		public MutexKnnClassifier knn;
+		public ForkJoinKnnClassifier knn;
 		
         @Setup(Level.Trial)
         public void doSetup() {
         	System.out.println("----------------[SetUp]----------------");
-        	knn = new MutexKnnClassifier(k, 7526883, 1742866, 500, 2);
+        	knn = new ForkJoinKnnClassifier(k, 7526883, 1742866, 500, 2);
 
         }
 
@@ -95,22 +97,22 @@ public class MyBenchmark {
 	    @Warmup(iterations = 3) 
 	    @BenchmarkMode(Mode.Throughput)
 	    @OutputTimeUnit(TimeUnit.MINUTES)
-	    public void testMutexVersion(MutexState Mutex_state) {
+	    public void testForkJoinVersion(ForkJoinState ForkJoin_state) throws InterruptedException, ExecutionException {
 		
-	    	Mutex_state.knn.predict();
+	    	ForkJoin_state.knn.predict();
 				
 	    }
     
 	    @State(Scope.Benchmark)
-	    public static class AtomicState {
+	    public static class ParallelStreamState {
 			@Param({ "5"})
 		    public int k;
-			public AtomicKnnClassifier knn;
+			public ParallelStreamKnnClassifier knn;
 			
 	        @Setup(Level.Trial)
 	        public void doSetup() {
 	        	System.out.println("----------------[SetUp]----------------");
-	        	knn = new AtomicKnnClassifier(k, 7526883, 1742866, 500, 2);
+	        	knn = new ParallelStreamKnnClassifier(k, 7526883, 1742866, 500);
 
 	        }
 
@@ -127,9 +129,43 @@ public class MyBenchmark {
 		    @Warmup(iterations = 3) 
 		    @BenchmarkMode(Mode.Throughput)
 		    @OutputTimeUnit(TimeUnit.MINUTES)
-		    public void testAtomicVersion(AtomicState Atomic_state) {
+		    public void testParallelStreamVersion(ParallelStreamState ParallelStream_state) {
 			
-		    	Atomic_state.knn.predict();
+		    	ParallelStream_state.knn.predict();
+					
+		}
+	
+	}
+	    
+	    @State(Scope.Benchmark)
+	    public static class ReactorState {
+			@Param({ "5"})
+		    public int k;
+			public ReactorKnnClassifier knn;
+			
+	        @Setup(Level.Trial)
+	        public void doSetup() {
+	        	System.out.println("----------------[SetUp]----------------");
+	        	knn = new ReactorKnnClassifier(k, 7526883, 1742866, 500, 2);
+
+	        }
+
+	        @TearDown(Level.Trial)
+	        public void doTearDown() {
+	            System.out.println("----------------[TearDown]----------------");
+	        }
+	    	
+
+
+
+		    @Benchmark 
+		    @Fork(value=1)
+		    @Warmup(iterations = 3) 
+		    @BenchmarkMode(Mode.Throughput)
+		    @OutputTimeUnit(TimeUnit.MINUTES)
+		    public void testReactorVersion(ReactorState Reactor_state) throws InterruptedException, ExecutionException {
+			
+		    	Reactor_state.knn.predict();
 					
 		}
 	

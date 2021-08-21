@@ -1,0 +1,4 @@
+package KNNBenchmark.KnnTesting.jmh_generated;
+public class MyBenchmark_ForkJoinState_ReactorState_jmhType extends MyBenchmark_ForkJoinState_ReactorState_jmhType_B3 {
+}
+
