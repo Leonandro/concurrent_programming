@@ -1,25 +1,38 @@
 package ufrn;
 
+import java.util.List;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Map.Entry;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import java.util.concurrent.locks.ReentrantLock;;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicIntegerArray;
 
-public class MutexKnnClassifier {
+import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers; 
+
+// ----- !!! IMPORTANTE !!! ----- //
+// Esta classe só vai funcionar em um 
+// Projeto Maven com a dependencia
+// Do Reactor-Core 
+
+
+public class ReactorKnnClassifier {
 	private int k; 
 	private double [][] trainData;	
-	private int [] trainDataTargetList;
 	private double [][] testData;
-	private int [] testDataTargetList;
+	private int [] trainDataTargetList;
 	private int [] expectedTestTargetList;
 	private int MAX_INSTANCES_OF_TEST;
-	private ReentrantLock mutex;
-	private Thread[] threads;
+	private AtomicIntegerArray testDataTargetList;
 	private int n_threads;
+
 	
-	public MutexKnnClassifier(int n_neighbors, int n_instances_train, int n_instances_test, int MAX_INSTANCES_OF_TEST, int n_threads) {
+	public ReactorKnnClassifier(int n_neighbors, int n_instances_train, int n_instances_test, int MAX_INSTANCES_OF_TEST, int n_threads) {
 		System.out.println("KNN start ---- [Loading the files]");
 		CSVReader trainReader = new CSVReader("/home/leonandro/Codes/java/programação_concorrente/datasets/diabetes.csv", 7526883);
 		CSVReader testReader = new CSVReader("/home/leonandro/Codes/java/programação_concorrente/datasets/diabetes_328mb.csv", 1742866);
@@ -37,61 +50,67 @@ public class MutexKnnClassifier {
 		System.out.println("KNN update ---- [Test data loaded]");
 		
 		this.MAX_INSTANCES_OF_TEST = MAX_INSTANCES_OF_TEST;
-		this.testDataTargetList = new int [MAX_INSTANCES_OF_TEST];
-		
 		this.n_threads = n_threads;
-		threads = new Thread[n_threads];
-		this.mutex = new ReentrantLock ();
+		
+		this.testDataTargetList = new AtomicIntegerArray (MAX_INSTANCES_OF_TEST);
 	}
 	
 	
-	public int [] predict () {
+	public int [] predict () throws InterruptedException, ExecutionException {
 		int N_PARTITION_SIZE = (this.MAX_INSTANCES_OF_TEST / this.n_threads);
-		// 20 / 3 = 6,667 => 6
-		// 0..5
-		// 6..11 
-		// 12..17 
-	
+		//Case of n_threads = 3
+		// P1 = (0, 6)
+		// P2 = (6, 12)
+		// P3 = (12, 18) 
+		// WRONG, the P3(last partition) have to get all the rest of the data
+		
+		
+		ExecutorService executor = Executors.newFixedThreadPool(this.n_threads);
+		List<Callable<String>> splitedPredictions = new ArrayList <>(); 		
 		for(int i=0; i<this.n_threads; i++) {
-			final int init = (N_PARTITION_SIZE*i);
-			final int end = N_PARTITION_SIZE*(i+1);
-			
-			threads[i] = new Thread(new Runnable() {
-				public void run() {
-					MutexKnnClassifier.this.predictSplited(init, end, MutexKnnClassifier.this.testData);	
+			int init = (N_PARTITION_SIZE*i);
+			int end = N_PARTITION_SIZE*(i+1);
+			splitedPredictions.add(new Callable <String> () {
+				
+				@Override
+				public String call() throws Exception{
+					predictSplited(init, end, ReactorKnnClassifier.this.testData);
+					return "Task Completed";
 				}
 			});
 		}
-			
 		
-		for(Thread t : threads) {
-			t.start();
+		List<Future<String>> result = executor.invokeAll(splitedPredictions);
+		
+		executor.shutdown();
+		
+		try {
+			executor.awaitTermination(60, TimeUnit.SECONDS);
+		}catch(InterruptedException e) {
+			e.printStackTrace();
 		}
 		
-
-		// To stop execution only when all threads ends their execution
-		for(Thread t : threads) {		
-			try {
-				t.join();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
+		int [] returnList = new int [this.testDataTargetList.length()];
+		
+		for(int i=0; i<this.testDataTargetList.length(); i++) {
+			returnList[i] = this.testDataTargetList.get(i);
 		}
 		
-		return this.testDataTargetList;
+		return returnList;
 	}
 	
+
 	public void predictSplited (int startingIndex, int finalIndex, double [][] data) {
 		int N_PARTITION_SIZE = (this.MAX_INSTANCES_OF_TEST / this.n_threads);
-		
+	
 		//The last partition have to represent all the rest of the data [P1, P2,...Pn + {the rest}]
 		if(finalIndex == N_PARTITION_SIZE*(this.n_threads)) finalIndex = this.MAX_INSTANCES_OF_TEST;
 		
 		HashMap <Integer, Float> kInstances = new HashMap <Integer, Float>();
 		
-		int thisLittleMF = -1;
-		for(int i=startingIndex; i<finalIndex; i++) {
-			
+		
+		Flux.range(startingIndex, finalIndex).subscribe( i -> {
+			int thisLittleMF = -1;
 			for(int j = 0; j < this.trainDataTargetList.length; j++) {
 				float distanceToLineInTrain = this.calculateEuclidianDistance(data[i], this.trainData[j]);
 				
@@ -110,14 +129,11 @@ public class MutexKnnClassifier {
 			}
 			
 			
-			this.mutex.lock();
-//			this.smartInsertion(instancePredicted, kInstances);
-			this.testDataTargetList[i] = mode(kInstances.keySet(), this.k);
-			this.mutex.unlock();
-			
+
+			this.testDataTargetList.set(i, mode(kInstances.keySet(), this.k));
 			
 			kInstances.clear();
-		}
+		});
 			
 	}
 	
@@ -147,6 +163,8 @@ public class MutexKnnClassifier {
 		return (float)Math.sqrt(sum);
 	}
 	
+
+
  	 
 	 private int mode(Collection <Integer> list, int k) {
 		    int maxValue = 0; 
@@ -157,6 +175,7 @@ public class MutexKnnClassifier {
 		    a = list.toArray();
 		    
 		    for (int i = 0; i <k; i++) {
+		    	//System.out.print(a[i] + " - ");
 		        int count = 0;
 		        for (int j = 0; j < a.length; ++j) {
 		            if (this.trainDataTargetList[(int)a[j]] == this.trainDataTargetList[(int)a[i]]) ++count;
@@ -170,6 +189,18 @@ public class MutexKnnClassifier {
 		    return maxValue;
 	 }
 	 
+	 public float getAccuracy () {
+			int numberOfHits = 0;
+			
+			for (int i = 0; i<this.MAX_INSTANCES_OF_TEST; i++) {
+				if(this.testDataTargetList.get(i) == this.expectedTestTargetList[i]) {
+					numberOfHits++;
+				}
+			}
+			//System.out.println((float)numberOfHits / this.MAX_INSTANCES_OF_TEST);
+			return (float)numberOfHits / this.MAX_INSTANCES_OF_TEST;
+	}
+	
 	 public int [] getExpectedAnswers () {
 		 int returnArray [] = new int [this.MAX_INSTANCES_OF_TEST];
 		 for(int i=0; i<this.MAX_INSTANCES_OF_TEST; i++) {
@@ -177,17 +208,4 @@ public class MutexKnnClassifier {
 		 }
 		 return returnArray;
 	 }
-	 
-	 
-	 public float getAccuracy () {
-			int numberOfHits = 0;
-			
-			for (int i = 0; i<this.MAX_INSTANCES_OF_TEST; i++) {
-				if(this.testDataTargetList[i] == this.expectedTestTargetList[i]) {
-					numberOfHits++;
-				}
-			}
-			//System.out.println((float)numberOfHits / this.MAX_INSTANCES_OF_TEST);
-			return (float)numberOfHits / this.MAX_INSTANCES_OF_TEST;
-		}
 }
