@@ -42,15 +42,15 @@ import java.util.concurrent.TimeUnit;
 public class MyBenchmark {
 	
 	@State(Scope.Benchmark)
-    public static class CallableState {
+    public static class SparkState {
 		@Param({"5"})
 	    public int k;
-		public CallableKnnClassifier knn;
+		public SparkKnnClassifier knn;
 		
         @Setup(Level.Trial)
         public void doSetup() {
         	System.out.println("----------------[SetUp]----------------");
-        	knn = new CallableKnnClassifier(k, 7526883, 1742866, 500, 2);
+        	knn = new SparkKnnClassifier(k, 7526883, 1742866, 500);
 
         }
 
@@ -64,114 +64,114 @@ public class MyBenchmark {
 	    @Warmup(iterations = 3) 
 	    @BenchmarkMode(Mode.Throughput)
 	    @OutputTimeUnit(TimeUnit.MINUTES)
-	    public void testCallableVersion(CallableState Callable_state) throws InterruptedException, ExecutionException {
+	    public void testSparkVersion(SparkState Spark_state) {
 		
-	    	Callable_state.knn.predict();
+	    	Spark_state.knn.predict();
 				
 	    }
 	}
 	
-	@State(Scope.Benchmark)
-    public static class ForkJoinState {
-		@Param({ "5"})
-	    public int k;
-		public ForkJoinKnnClassifier knn;
-		
-        @Setup(Level.Trial)
-        public void doSetup() {
-        	System.out.println("----------------[SetUp]----------------");
-        	knn = new ForkJoinKnnClassifier(k, 7526883, 1742866, 500, 2);
-
-        }
-
-        @TearDown(Level.Trial)
-        public void doTearDown() {
-            System.out.println("----------------[TearDown]----------------");
-        }
-    	
-
-
-
-	    @Benchmark 
-	    @Fork(value=1)
-	    @Warmup(iterations = 3) 
-	    @BenchmarkMode(Mode.Throughput)
-	    @OutputTimeUnit(TimeUnit.MINUTES)
-	    public void testForkJoinVersion(ForkJoinState ForkJoin_state) throws InterruptedException, ExecutionException {
-		
-	    	ForkJoin_state.knn.predict();
-				
-	    }
+//	@State(Scope.Benchmark)
+//    public static class ForkJoinState {
+//		@Param({ "5"})
+//	    public int k;
+//		public ForkJoinKnnClassifier knn;
+//		
+//        @Setup(Level.Trial)
+//        public void doSetup() {
+//        	System.out.println("----------------[SetUp]----------------");
+//        	knn = new ForkJoinKnnClassifier(k, 7526883, 1742866, 500, 2);
+//
+//        }
+//
+//        @TearDown(Level.Trial)
+//        public void doTearDown() {
+//            System.out.println("----------------[TearDown]----------------");
+//        }
+//    	
+//
+//
+//
+//	    @Benchmark 
+//	    @Fork(value=1)
+//	    @Warmup(iterations = 3) 
+//	    @BenchmarkMode(Mode.Throughput)
+//	    @OutputTimeUnit(TimeUnit.MINUTES)
+//	    public void testForkJoinVersion(ForkJoinState ForkJoin_state) throws InterruptedException, ExecutionException {
+//		
+//	    	ForkJoin_state.knn.predict();
+//				
+//	    }
+//    
+//	    @State(Scope.Benchmark)
+//	    public static class ParallelStreamState {
+//			@Param({ "5"})
+//		    public int k;
+//			public ParallelStreamKnnClassifier knn;
+//			
+//	        @Setup(Level.Trial)
+//	        public void doSetup() {
+//	        	System.out.println("----------------[SetUp]----------------");
+//	        	knn = new ParallelStreamKnnClassifier(k, 7526883, 1742866, 500);
+//
+//	        }
+//
+//	        @TearDown(Level.Trial)
+//	        public void doTearDown() {
+//	            System.out.println("----------------[TearDown]----------------");
+//	        }
+//	    	
+//
+//
+//
+//		    @Benchmark 
+//		    @Fork(value=1)
+//		    @Warmup(iterations = 3) 
+//		    @BenchmarkMode(Mode.Throughput)
+//		    @OutputTimeUnit(TimeUnit.MINUTES)
+//		    public void testParallelStreamVersion(ParallelStreamState ParallelStream_state) {
+//			
+//		    	ParallelStream_state.knn.predict();
+//					
+//		}
+//	
+//	}
+//	    
+//	    @State(Scope.Benchmark)
+//	    public static class ReactorState {
+//			@Param({ "5"})
+//		    public int k;
+//			public ReactorKnnClassifier knn;
+//			
+//	        @Setup(Level.Trial)
+//	        public void doSetup() {
+//	        	System.out.println("----------------[SetUp]----------------");
+//	        	knn = new ReactorKnnClassifier(k, 7526883, 1742866, 500, 2);
+//
+//	        }
+//
+//	        @TearDown(Level.Trial)
+//	        public void doTearDown() {
+//	            System.out.println("----------------[TearDown]----------------");
+//	        }
+//	    	
+//
+//
+//
+//		    @Benchmark 
+//		    @Fork(value=1)
+//		    @Warmup(iterations = 3) 
+//		    @BenchmarkMode(Mode.Throughput)
+//		    @OutputTimeUnit(TimeUnit.MINUTES)
+//		    public void testReactorVersion(ReactorState Reactor_state) throws InterruptedException, ExecutionException {
+//			
+//		    	Reactor_state.knn.predict();
+//					
+//		}
+	
+	//}
+	
     
-	    @State(Scope.Benchmark)
-	    public static class ParallelStreamState {
-			@Param({ "5"})
-		    public int k;
-			public ParallelStreamKnnClassifier knn;
-			
-	        @Setup(Level.Trial)
-	        public void doSetup() {
-	        	System.out.println("----------------[SetUp]----------------");
-	        	knn = new ParallelStreamKnnClassifier(k, 7526883, 1742866, 500);
-
-	        }
-
-	        @TearDown(Level.Trial)
-	        public void doTearDown() {
-	            System.out.println("----------------[TearDown]----------------");
-	        }
-	    	
-
-
-
-		    @Benchmark 
-		    @Fork(value=1)
-		    @Warmup(iterations = 3) 
-		    @BenchmarkMode(Mode.Throughput)
-		    @OutputTimeUnit(TimeUnit.MINUTES)
-		    public void testParallelStreamVersion(ParallelStreamState ParallelStream_state) {
-			
-		    	ParallelStream_state.knn.predict();
-					
-		}
-	
-	}
-	    
-	    @State(Scope.Benchmark)
-	    public static class ReactorState {
-			@Param({ "5"})
-		    public int k;
-			public ReactorKnnClassifier knn;
-			
-	        @Setup(Level.Trial)
-	        public void doSetup() {
-	        	System.out.println("----------------[SetUp]----------------");
-	        	knn = new ReactorKnnClassifier(k, 7526883, 1742866, 500, 2);
-
-	        }
-
-	        @TearDown(Level.Trial)
-	        public void doTearDown() {
-	            System.out.println("----------------[TearDown]----------------");
-	        }
-	    	
-
-
-
-		    @Benchmark 
-		    @Fork(value=1)
-		    @Warmup(iterations = 3) 
-		    @BenchmarkMode(Mode.Throughput)
-		    @OutputTimeUnit(TimeUnit.MINUTES)
-		    public void testReactorVersion(ReactorState Reactor_state) throws InterruptedException, ExecutionException {
-			
-		    	Reactor_state.knn.predict();
-					
-		}
-	
-	}
-	
-    
-    }
+    //}
 
 }
